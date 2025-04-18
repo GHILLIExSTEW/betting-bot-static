@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Betting Bot Admin Dashboard</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Roboto", sans-serif;
+        background: linear-gradient(135deg, #2c3e50, #34495e);
+        color: #ecf0f1;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      nav {
+        background: #1c2526;
+        padding: 15px 20px;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+      nav a {
+        color: #ecf0f1;
+        text-decoration: none;
+        margin: 0 15px;
+        font-weight: 500;
+        transition: color 0.3s;
+      }
+      nav a:hover {
+        color: #3498db;
+      }
+      h1 {
+        color: #ecf0f1;
+        text-align: center;
+        margin: 20px 0;
+        font-size: 2.5em;
+      }
+      .section {
+        background: #34495e;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        background: #3d566e;
+      }
+      th,
+      td {
+        padding: 12px;
+        border: 1px solid #4a6785;
+        text-align: left;
+        color: #ecf0f1;
+      }
+      th {
+        background: #3498db;
+        color: #ecf0f1;
+        font-weight: 500;
+      }
+      tr:hover {
+        background: #4a6785;
+      }
+      .form-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin: 20px 0;
+      }
+      input {
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #4a6785;
+        font-size: 1em;
+        background: #3d566e;
+        color: #ecf0f1;
+      }
+      button {
+        padding: 10px;
+        border-radius: 6px;
+        background: #3498db;
+        color: #ecf0f1;
+        border: none;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+      button:hover {
+        background: #2980b9;
+      }
+      pre {
+        background: #3d566e;
+        padding: 15px;
+        border-radius: 6px;
+        max-height: 200px;
+        overflow-y: auto;
+        color: #ecf0f1;
+      }
+      .chart-container {
+        width: 100%;
+        max-width: 600px;
+        margin: 20px auto;
+        background: #34495e;
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+      img {
+        width: 24px;
+        height: 24px;
+        vertical-align: middle;
+        margin-right: 8px;
+        border-radius: 4px;
+      }
+      .loading {
+        display: none;
+        text-align: center;
+        padding: 20px;
+        color: #3498db;
+        font-weight: 500;
+      }
+      @media (max-width: 768px) {
+        .container {
+          padding: 10px;
+        }
+        h1 {
+          font-size: 1.8em;
+        }
+        .form-container {
+          flex-direction: column;
+        }
+        input,
+        button {
+          width: 100%;
+        }
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <nav>
+      <a href="/index.html">Admin Dashboard</a>
+      <a href="/profile.html">Bettor Profile</a>
+      <a href="/leaderboard.html">Leaderboard</a>
+    </nav>
+    <div class="container">
+      <h1>Betting Bot Admin Dashboard</h1>
+      <div class="section">
+        <p>
+          Admin Token:
+          <input type="text" id="token" placeholder="Enter token" /><button
+            onclick="setToken()"
+          >
+            Login
+          </button>
+        </p>
+      </div>
+      <div class="section">
+        <h2>Guild Statistics</h2>
+        <div class="loading" id="guild-loading">Loading guilds...</div>
+        <pre id="guild-stats"></pre>
+        <div class="chart-container">
+          <canvas id="guildUnitsChart"></canvas>
+        </div>
+        <div class="chart-container">
+          <canvas id="betOutcomesChart"></canvas>
+        </div>
+      </div>
+      <div class="section">
+        <h2>Recent Bets</h2>
+        <input
+          type="text"
+          id="bet-filter"
+          placeholder="Filter by user or league"
+          onkeyup="filterBets()"
+        />
+        <div class="loading" id="bets-loading">Loading bets...</div>
+        <table id="bets-table">
+          <thead>
+            <tr>
+              <th>Serial</th>
+              <th>User</th>
+              <th>League</th>
+              <th>Bet Details</th>
+              <th>Units</th>
+              <th>Outcome</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <script>
+      let authToken = "";
+      const API_BASE_URL = "YOUR_API_URL_HERE"; // Replace with e.g., https://api.yourdomain.com
+      let betsData = [];
+
+      function showLoading(show) {
+        document.getElementById("guild-loading").style.display = show
+          ? "block"
+          : "none";
+        document.getElementById("bets-loading").style.display = show
+          ? "block"
+          : "none";
+      }
+
+      function setToken() {
+        authToken = document.getElementById("token").value;
+        fetchData();
+      }
+
+      async function fetchData() {
+        if (!authToken) {
+          alert("Please enter a token.");
+          return;
+        }
+        showLoading(true);
+        const headers = { Authorization: authToken };
+        try {
+          const statsResponse = await fetch(`${API_BASE_URL}/api/guilds`, {
+            headers,
+          });
+          if (!statsResponse.ok)
+            throw new Error(
+              `Guild stats fetch failed: ${statsResponse.status}`
+            );
+          const stats = await statsResponse.json();
+          document.getElementById("guild-stats").textContent = JSON.stringify(
+            stats,
+            null,
+            2
+          );
+          renderGuildUnitsChart(stats);
+
+          const betsResponse = await fetch(`${API_BASE_URL}/api/bets`, {
+            headers,
+          });
+          if (!betsResponse.ok)
+            throw new Error(`Bets fetch failed: ${betsResponse.status}`);
+          betsData = await betsResponse.json();
+          renderBetsTable(betsData);
+          renderBetOutcomesChart(betsData);
+        } catch (error) {
+          console.error("Error fetching data:", error);
+          document.getElementById(
+            "guild-stats"
+          ).textContent = `Error: ${error.message}`;
+          document
+            .getElementById("bets-table")
+            .querySelector("tbody").innerHTML =
+            '<tr><td colspan="6">Error loading bets. Check token/console.</td></tr>';
+        } finally {
+          showLoading(false);
+        }
+      }
+
+      function renderGuildUnitsChart(stats) {
+        const ctx = document.getElementById("guildUnitsChart").getContext("2d");
+        new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: stats.map((g) => g.name || `Guild ${g.id}`),
+            datasets: [
+              {
+                label: "Monthly Units",
+                data: stats.map((g) => g.monthly_units || 0),
+                backgroundColor: "#3498db",
+                borderColor: "#2980b9",
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            animation: { duration: 1000, easing: "easeOutQuart" },
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: { display: true, text: "Units", color: "#ecf0f1" },
+              },
+            },
+            plugins: { legend: { display: false } },
+          },
+        });
+      }
+
+      function renderBetOutcomesChart(bets) {
+        const outcomes = { won: 0, lost: 0, pending: 0, void: 0 };
+        bets.forEach((bet) => {
+          if (bet.bet_won === 1) outcomes.won++;
+          else if (bet.bet_loss === 1) outcomes.lost++;
+          else if (bet.bet_won === 0 && bet.bet_loss === 0) outcomes.void++;
+          else outcomes.pending++;
+        });
+        const ctx = document
+          .getElementById("betOutcomesChart")
+          .getContext("2d");
+        new Chart(ctx, {
+          type: "pie",
+          data: {
+            labels: ["Won", "Lost", "Pending", "Void"],
+            datasets: [
+              {
+                data: [
+                  outcomes.won,
+                  outcomes.lost,
+                  outcomes.pending,
+                  outcomes.void,
+                ],
+                backgroundColor: ["#2ecc71", "#e74c3c", "#f1c40f", "#95a5a6"],
+                borderColor: "#1c2526",
+                borderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            animation: { duration: 1000, easing: "easeInOutQuad" },
+            plugins: {
+              legend: { position: "bottom", labels: { color: "#ecf0f1" } },
+              title: { display: true, text: "Bet Outcomes", color: "#ecf0f1" },
+            },
+          },
+        });
+      }
+
+      function renderBetsTable(bets) {
+        const tbody = document
+          .getElementById("bets-table")
+          .querySelector("tbody");
+        tbody.innerHTML = "";
+        bets.forEach((bet) => {
+          const row = tbody.insertRow();
+          let teamLogoHtml = bet.team_logo
+            ? `<img src="${bet.team_logo}" alt="${bet.team || ""} logo">`
+            : '<img src="/static/fallback.png" alt="No logo">';
+          let oppLogoHtml = bet.opponent_logo
+            ? `<img src="${bet.opponent_logo}" alt="${
+                bet.opponent || ""
+              } logo">`
+            : '<img src="/static/fallback.png" alt="No logo">';
+          let betDetails =
+            bet.bet_type === "prop"
+              ? `Player ${bet.player_id || "N/A"} (${bet.prop_type || ""}): ${
+                  bet.opponent || "N/A"
+                }`
+              : `${teamLogoHtml}${bet.team || "N/A"} vs ${oppLogoHtml}${
+                  bet.opponent || "N/A"
+                }`;
+          let outcome =
+            bet.bet_won === 1 ? "Won" : bet.bet_loss === 1 ? "Lost" : "Pending";
+          row.innerHTML = `
+                    <td>${bet.bet_serial || "N/A"}</td>
+                    <td>${bet.user_id || "N/A"}</td>
+                    <td>${bet.league || "N/A"}</td>
+                    <td>${betDetails}</td>
+                    <td>${bet.units || 0}</td>
+                    <td>${outcome}</td>
+                `;
+        });
+      }
+
+      function filterBets() {
+        const filter = document
+          .getElementById("bet-filter")
+          .value.toLowerCase();
+        const filtered = betsData.filter(
+          (bet) =>
+            (bet.user_id || "").toLowerCase().includes(filter) ||
+            (bet.league || "").toLowerCase().includes(filter)
+        );
+        renderBetsTable(filtered);
+      }
+    </script>
+  </body>
+</html>
